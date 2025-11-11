@@ -8,16 +8,7 @@
 - 查詢書籍：依書名或作者模糊查詢。
 - CLI 介面：簡單選單操作。
 
-## 安裝
-1. `pip install -r requirements.txt`
-2. `python app.py`
-
 ## 結構
 - app.py: 主程式與 UI。
 - scraper.py: 爬蟲邏輯。
 - database.py: 資料庫操作。
-- books.db: 自動生成 (勿手動編輯)。
-
-## 注意
-- 參考 Selenium 官方文件 (註解標明)。
-- 無抄襲，所有邏輯原創。
