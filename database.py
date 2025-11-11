@@ -1,24 +1,35 @@
-# database.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-資料庫模組：負責建立 books.db、資料表 llm_books，並提供插入與模糊查詢功能。
-使用 INSERT OR IGNORE 避免重複，啟用 Row factory。
+SQLite 資料庫管理模組
+作者: [Your Name]
+日期: 2025-11-12
 """
 
 import sqlite3
 from typing import List, Dict, Any
+from contextlib import contextmanager
+
 
 DB_FILE = "books.db"
 
-def _get_connection():
-    """建立並回傳啟用 Row factory 的資料庫連線。"""
+
+@contextmanager
+def get_db_connection():
+    """資料庫連線上下文管理器"""
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    conn.row_factory = sqlite3.Row  # 啟用 Row factory
+    try:
+        yield conn
+    finally:
+        conn.close()
+
 
 def init_db() -> None:
-    """建立資料表（若不存在）。"""
-    with _get_connection() as conn:
-        conn.execute("""
+    """初始化資料庫與資料表"""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_books (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL UNIQUE,
@@ -29,60 +40,50 @@ def init_db() -> None:
         """)
         conn.commit()
 
-def insert_books(books: List[Dict[str, Any]]) -> int:
+
+def insert_books(books: List[Dict[str, str]]) -> int:
     """
-    批量插入書籍，使用 INSERT OR IGNORE。
+    批量插入書籍 (使用 INSERT OR IGNORE 避免重複)
 
     Args:
         books: 書籍列表
 
     Returns:
-        int: 新增的筆數
+        int: 新增筆數
     """
-    init_db()
-    inserted = 0
-    with _get_connection() as conn:
+    new_count = 0
+    with get_db_connection() as conn:
         cursor = conn.cursor()
         for book in books:
-            try:
-                cursor.execute("""
-                    INSERT OR IGNORE INTO llm_books (title, author, price, link)
-                    VALUES (?, ?, ?, ?)
-                """, (book["title"], book["author"], book["price"], book["link"]))
-                if cursor.rowcount > 0:
-                    inserted += 1
-            except sqlite3.Error as e:
-                print(f"插入失敗（{book['title']}）：{e}")
+            cursor.execute("""
+                INSERT OR IGNORE INTO llm_books (title, author, price, link)
+                VALUES (?, ?, ?, ?)
+            """, (book["title"], book["author"], int(book["price"]), book["link"]))
+            if cursor.rowcount > 0:
+                new_count += 1
         conn.commit()
-    return inserted
+    return new_count
 
-def query_books(field: str, keyword: str) -> List[Dict[str, Any]]:
-    """
-    模糊查詢（LIKE '%keyword%'）。
 
-    Args:
-        field: 'title' 或 'author'
-        keyword: 搜尋關鍵字
+def query_books_by_title(keyword: str) -> List[Dict[str, Any]]:
+    """依書名模糊查詢"""
+    return _query_books("title", keyword)
 
-    Returns:
-        List[Dict]: 查詢結果
-    """
-    init_db()
+
+def query_books_by_author(keyword: str) -> List[Dict[str, Any]]:
+    """依作者模糊查詢"""
+    return _query_books("author", keyword)
+
+
+def _query_books(column: str, keyword: str) -> List[Dict[str, Any]]:
+    """通用查詢函式 (LIKE '%keyword%')"""
     results = []
-    with _get_connection() as conn:
+    with get_db_connection() as conn:
         cursor = conn.cursor()
-        try:
-            cursor.execute(f"""
-                SELECT title, author, price FROM llm_books
-                WHERE {field} LIKE ?
-                ORDER BY price
-            """, (f"%{keyword}%",))
-            for row in cursor.fetchall():
-                results.append({
-                    "title": row["title"],
-                    "author": row["author"],
-                    "price": row["price"]
-                })
-        except sqlite3.Error as e:
-            print(f"查詢失敗：{e}")
+        cursor.execute(f"""
+            SELECT title, author, price FROM llm_books
+            WHERE {column} LIKE ?
+        """, (f"%{keyword}%",))
+        for row in cursor.fetchall():
+            results.append(dict(row))
     return results
