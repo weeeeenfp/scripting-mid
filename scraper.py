@@ -28,6 +28,8 @@ def get_books() -> List[Dict[str, Optional[str | int]]]:
 
     # === 1. 設定 Chrome 選項（headless=new 必須）===
     options = Options()
+    #創建一個Chrome options的物件​
+    options.add_argument("--disable-notifications")
     options.add_argument("--headless=new")        # 關鍵！Chrome 142 必須
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
@@ -35,7 +37,6 @@ def get_books() -> List[Dict[str, Optional[str | int]]]:
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-images")
     options.add_argument("--disable-javascript")
-
     # === 2. 指定本地 chromedriver.exe ===
     driver_path = os.path.join(os.path.dirname(__file__), "chromedriver.exe")
     if not os.path.exists(driver_path):
@@ -43,12 +44,10 @@ def get_books() -> List[Dict[str, Optional[str | int]]]:
         return []
 
     service = Service(executable_path=driver_path)
-
-    driver = None
     try:
         print("正在啟動 Chrome 瀏覽器...")
         browser = webdriver.Chrome()  # 啟動 Chrome webdriver
-        #driver = webdriver.Chrome(service=service, options=options)
+        driver = webdriver.Chrome(service=service, options=options)
         wait = WebDriverWait(driver, 30)
         # === 3. 開啟博客來首頁 ===
         print("正在開啟 https://www.books.com.tw/")
@@ -63,7 +62,7 @@ def get_books() -> List[Dict[str, Optional[str | int]]]:
             }
             // 額外防禦：移除所有廣告相關元素
             document.querySelectorAll('div, iframe').forEach(el => {
-                const style = window.getComputedStyle(el);
+                const style = w                                                                                             indow.getComputedStyle(el);
                 if (style.position === 'fixed' || style.zIndex > 1000) {
                     el.remove();
                 }
