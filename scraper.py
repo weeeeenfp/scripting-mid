@@ -18,7 +18,42 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import re
 import time
 
-
+def close_popup(driver):
+    """關閉博客來首頁彈窗"""
+    wait = WebDriverWait(driver, 10)
+    
+    # 方法 1：點擊「×」或「關閉」按鈕
+    close_selectors = [
+        (By.XPATH, "//a[contains(@class, 'close')]"),
+        (By.XPATH, "//button[contains(@class, 'close')]"),
+        (By.XPATH, "//a[text()='×']"),
+        (By.XPATH, "//span[text()='關閉']"),
+        (By.CSS_SELECTOR, ".modals .close"),
+        (By.CSS_SELECTOR, ".popup .btn-close"),
+    ]
+    
+    for by, selector in close_selectors:
+        try:
+            btn = wait.until(EC.element_to_be_clickable((by, selector)))
+            driver.execute_script("arguments[0].click();", btn)  # 避開攔截
+            print("彈窗已點擊關閉")
+            return True
+        except TimeoutException:
+            continue
+    
+    # 方法 2：若點擊失敗 → 強制隱藏
+    try:
+        driver.execute_script("""
+            var modals = document.querySelectorAll('.modals, .popup, .layer, [id*="modal"]');
+            modals.forEach(el => el.style.display = 'none');
+            document.body.style.overflow = 'auto';
+        """)
+        print("彈窗已強制隱藏")
+        return True
+    except:
+        print("無法關閉彈窗")
+        return False
+    
 def scrape_books() -> List[Dict[str, str]]:
     """
     爬取博客來 LLM 書籍資料 (所有分頁)
@@ -34,6 +69,8 @@ def scrape_books() -> List[Dict[str, str]]:
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=options)
     wait = WebDriverWait(driver, 10)
+    driver.set_window_size(800, 600)  # 設定視窗大小
+
 
     books: List[Dict[str, str]] = []
     current_url = "https://search.books.com.tw/search/query/key/LLM/cat/BKA"  # 預設圖書分類
@@ -41,12 +78,17 @@ def scrape_books() -> List[Dict[str, str]]:
     try:
         driver.get("https://www.books.com.tw/")
         time.sleep(2)
-
+        
+        close_popup(driver)
         # 輸入關鍵字並送出
-        search_box = wait.until(EC.presence_of_element_located((By.ID, "keyword")))
-        search_box.clear()
-        search_box.send_keys("LLM")
-        search_box.submit()
+        qelement = driver.find_element(By.NAME, "q")  # 找到 name = q 的標籤(即輸入框)
+        qelement.send_keys("LLM")  # 輸入關鍵字
+        time.sleep(2)  # 暫停  秒
+        qelement.submit()  # 送出
+        #search_box = wait.until(EC.presence_of_element_located((By.ID, "keyword")))
+        #search_box.clear()
+        #search_box.send_keys("LLM")
+        #search_box.submit()
         time.sleep(2)
 
         # 勾選圖書分類 (點擊圖書選項)
